@@ -18,20 +18,38 @@ func IsExist(name string) bool {
 	return true
 }
 
-//GenerAbsPath 如果path是相对地址则转换为binary文件同级目录地址
-//如果是绝对路径则返回path
-func GenerAbsPath(path string) string {
-	if filepath.IsAbs(path) {
-		return path
+// GenerAbsPath 如果path是相对地址则转换为binary文件同级目录地址
+// 如果是绝对路径则返回path
+// 错误返回path和error
+func GenerAbsPath(path string) (string, error) {
+	var res string = ""
+	info, e := os.Lstat(os.Args[0])
+	if e != nil {
+		return path, e
 	}
-	binpath, _ := filepath.Abs(filepath.Dir(os.Args[0]))
+	// 链接
+	if info.Mode()&os.ModeSymlink != 0 {
+		binpath, e := filepath.EvalSymlinks(os.Args[0])
+		if e != nil {
+			return path, e
+		}
+		res = filepath.Dir(binpath) + "/" + path
+	} else {
+		// 文件
+		if filepath.IsAbs(path) {
+			return path, nil
+		}
+		abspath, e := filepath.Abs(os.Args[0])
+		if e != nil {
+			return path, e
+		}
+		res = filepath.Dir(abspath) + "/" + path
+	}
 	// Unix/Windows support
 	if runtime.GOOS == "windows" {
-		path = binpath + "\\" + strings.ReplaceAll(path, "/", "\\")
-	} else {
-		path = binpath + "/" + path
+		res = strings.ReplaceAll(res, "/", "\\")
 	}
-	return path
+	return res, nil
 }
 
 // GetFuncNameLine 运行到哪一行
